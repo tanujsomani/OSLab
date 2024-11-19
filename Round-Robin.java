@@ -1,195 +1,112 @@
+import java.util.LinkedList;
+import java.util.Queue;
 import java.util.Scanner;
 import java.util.Arrays;
-import java.util.InputMismatchException; // Import the InputMismatchException class
-
-//scheduling algorithm
-//Each process getting a maximum of quant time to run.
-//If a process's burst time is <= to the quantum, it completes execution.
-//If it exceeds the quantum, the remaining burst time is reduced,
-//and the process is placed back in the queue for the next round.//ideal for time-sharing systems.
 
 class Process {
-    int AT, BT, FT, WT, TAT, pos;
-    int[] ST = new int[20];
+    int pid;         // Process ID
+    int arrivalTime; // Arrival Time
+    int burstTime;   // Burst Time
+    int remainingTime; // Remaining Burst Time
+    int waitingTime;  // Waiting Time
+    int turnaroundTime; // Turnaround Time
 
-    public Process() {
-        Arrays.fill(ST, -1);
+    Process(int pid, int arrivalTime, int burstTime) {
+        this.pid = pid;
+        this.arrivalTime = arrivalTime;
+        this.burstTime = burstTime;
+        this.remainingTime = burstTime;
+        this.waitingTime = 0;
+        this.turnaroundTime = 0;
     }
 }
 
-public class RoundRobin_2 {
-    static int quant;
-
+public class Main {
     public static void main(String[] args) {
         Scanner sc = new Scanner(System.in);
-        int n = 0;
 
-        // Taking Input
+        // Input number of processes
         System.out.print("Enter the number of processes: ");
-        while (true) {
-            try {
-                n = sc.nextInt();
-                if (n > 0) break;
-                else System.out.print("Please enter a positive integer: ");
-            } catch (InputMismatchException e) {
-                System.out.print("Invalid input. Please enter an integer: ");
-                sc.next(); // clear the invalid input
-            }
-        }
-        Process[] p = new Process[n];
+        int n = sc.nextInt();
 
-        System.out.print("Enter the quantum: ");
-        while (true) {
-            try {
-                quant = sc.nextInt();
-                if (quant > 0) break;
-                else System.out.print("Please enter a positive integer: ");
-            } catch (InputMismatchException e) {
-                System.out.print("Invalid input. Please enter an integer: ");
-                sc.next(); // clear the invalid input
-            }
-        }
+        Process[] processes = new Process[n];
 
-        System.out.println("Enter the process numbers: ");
+        // Input arrival and burst times
+        System.out.println("Enter Arrival Time and Burst Time for each process:");
         for (int i = 0; i < n; i++) {
-            p[i] = new Process();
-            while (true) {
-                try {
-                    p[i].pos = sc.nextInt();
-                    break;
-                } catch (InputMismatchException e) {
-                    System.out.print("Invalid input. Please enter an integer: ");
-                    sc.next(); // clear the invalid input
+            System.out.print("Process " + (i + 1) + " - Arrival Time: ");
+            int at = sc.nextInt();
+            System.out.print("Process " + (i + 1) + " - Burst Time: ");
+            int bt = sc.nextInt();
+            processes[i] = new Process(i + 1, at, bt);
+        }
+
+        // Input quantum time
+        System.out.print("Enter the quantum time: ");
+        int quantum = sc.nextInt();
+
+        // Sort processes by arrival time
+        Arrays.sort(processes, (p1, p2) -> p1.arrivalTime - p2.arrivalTime);
+
+        // Simulation variables
+        Queue<Process> readyQueue = new LinkedList<>();
+        int currentTime = 0; // Current simulation time
+        int completed = 0;   // Number of completed processes
+        float totalWT = 0;   // Total waiting time
+        float totalTAT = 0;  // Total turnaround time
+
+        // Add first process to the ready queue
+        readyQueue.add(processes[0]);
+        int index = 1; // Index for new processes arriving later
+
+        // Process scheduling loop
+        while (completed < n) {
+            if (readyQueue.isEmpty() && index < n) {
+                // Advance time to the next process arrival if the queue is empty
+                currentTime = processes[index].arrivalTime;
+                readyQueue.add(processes[index++]);
+            }
+
+            // Get the next process from the queue
+            Process currentProcess = readyQueue.poll();
+
+            // Check if the process has remaining burst time
+            if (currentProcess.remainingTime > 0) {
+                // Execute the process for the quantum or until completion
+                int executionTime = Math.min(currentProcess.remainingTime, quantum);
+                currentProcess.remainingTime -= executionTime;
+                currentTime += executionTime;
+
+                // Add newly arrived processes to the ready queue
+                while (index < n && processes[index].arrivalTime <= currentTime) {
+                    readyQueue.add(processes[index++]);
+                }
+
+                // If the process is not completed, re-add it to the queue
+                if (currentProcess.remainingTime > 0) {
+                    readyQueue.add(currentProcess);
+                } else {
+                    // Calculate waiting and turnaround times for completed processes
+                    currentProcess.turnaroundTime = currentTime - currentProcess.arrivalTime;
+                    currentProcess.waitingTime = currentProcess.turnaroundTime - currentProcess.burstTime;
+                    totalWT += currentProcess.waitingTime;
+                    totalTAT += currentProcess.turnaroundTime;
+                    completed++;
                 }
             }
         }
 
-        System.out.println("Enter the Arrival time of processes: ");
-        for (int i = 0; i < n; i++) {
-            while (true) {
-                try {
-                    p[i].AT = sc.nextInt();
-                    break;
-                } catch (InputMismatchException e) {
-                    System.out.print("Invalid input. Please enter an integer: ");
-                    sc.next(); // clear the invalid input
-                }
-            }
+        // Output results
+        System.out.println("\nProcess\tArrival Time\tBurst Time\tWaiting Time\tTurnaround Time");
+        for (Process process : processes) {
+            System.out.printf("%d\t\t%d\t\t%d\t\t%d\t\t%d%n", process.pid, process.arrivalTime, process.burstTime, process.waitingTime, process.turnaroundTime);
         }
 
-        System.out.println("Enter the Burst time of processes: ");
-        for (int i = 0; i < n; i++) {
-            while (true) {
-                try {
-                    p[i].BT = sc.nextInt();
-                    break;
-                } catch (InputMismatchException e) {
-                    System.out.print("Invalid input. Please enter an integer: ");
-                    sc.next(); // clear the invalid input
-                }
-            }
-        }
-
-        // Declaring variables
-        int c = n;
-        float time = 0, mini = Float.MAX_VALUE;
-        float[] b = new float[n];
-        float[] a = new float[n];
-        int[][] s = new int[n][20];
-
-        // Initializing burst and arrival time arrays
-        int index = -1;
-        for (int i = 0; i < n; i++) {
-            b[i] = p[i].BT;
-            a[i] = p[i].AT;
-            Arrays.fill(s[i], -1);
-        }
-
-        int tot_wt = 0, tot_tat = 0;
-        boolean flag = false;
-
-        while (c != 0) {
-            mini = Float.MAX_VALUE;
-            flag = false;
-
-            for (int i = 0; i < n; i++) {
-                float tempTime = time + 0.1f; // renamed variable
-                if (a[i] <= tempTime && mini > a[i] && b[i] > 0) {
-                    index = i;
-                    mini = a[i];
-                    flag = true;
-                }
-            }
-
-            // if at =1 then loop gets out hence set flag to false
-            if (!flag) {
-                time++;
-                continue;
-            }
-
-            // calculating start time
-            int j = 0;
-            while (s[index][j] != -1) {
-                j++;
-            }
-
-            if (s[index][j] == -1) {
-                s[index][j] = (int) time;
-                p[index].ST[j] = (int) time;
-            }
-
-            if (b[index] <= quant) {
-                time += b[index];
-                b[index] = 0;
-            } else {
-                time += quant;
-                b[index] -= quant;
-            }
-
-            if (b[index] > 0) {
-                a[index] = time + 0.1f;
-            }
-
-            // calculating arrival, burst, final times
-            if (b[index] == 0) {
-                c--;
-                p[index].FT = (int) time;
-                p[index].WT = p[index].FT - p[index].AT - p[index].BT;
-                tot_wt += p[index].WT;
-                p[index].TAT = p[index].BT + p[index].WT;
-                tot_tat += p[index].TAT;
-            }
-        } // end of while loop
-
-        // Printing output
-        System.out.println("Process number  Arrival time  Burst time  Start time          Final time  Wait Time  TurnAround Time");
-        System.out.println("---------------------------------------------------------------------------------------------");
-
-        for (int i = 0; i < n; i++) {
-            System.out.printf("%14d%13d%11d", p[i].pos, p[i].AT, p[i].BT);
-            int j = 0;
-            int v = 0;
-            System.out.print("  ");
-            while (s[i][j] != -1) {
-                System.out.printf("%4d ", p[i].ST[j]);
-                j++;
-                v += 3;
-            }
-            while (v < 40) {
-                System.out.print(" ");
-                v++;
-            }
-            System.out.printf("%11d%11d%17d%n", p[i].FT, p[i].WT, p[i].TAT);
-        }
-
-        // Calculating average wait time and turnaround time
-        double avg_wt = tot_wt / (double) n;
-        double avg_tat = tot_tat / (double) n;
-
-        // Printing average wait time and turnaround time
-        System.out.println("The average wait time is: " + avg_wt);
-        System.out.println("The average TurnAround time is: " + avg_tat);
+        // Output average waiting and turnaround times
+        System.out.printf("%nAverage Waiting Time: %.2f%n", totalWT / n);
+        System.out.printf("Average Turnaround Time: %.2f%n", totalTAT / n);
 
         sc.close();
     }
 }
+       
